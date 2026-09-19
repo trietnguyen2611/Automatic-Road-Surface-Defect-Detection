@@ -1,27 +1,39 @@
-# Deep Learning & YOLO
-ultralytics
-torch
-torchvision
+# ==========================================================
+# Automatic Road Surface Defect Detection & Flexi-YOLO
+# Dependencies & Environment Requirements
+# ==========================================================
+
+# Core Deep Learning & YOLO (Paper Baseline & Proposed Method)
+torch>=2.2.0,<2.3.0
+torchvision>=0.17.0,<0.18.0
+ultralytics>=8.0.0
+
+# Numerical & Scientific Computing
+# Note: PyTorch 2.2.x requires numpy < 2.0.0 to prevent C-API ABI mismatch
+numpy>=1.26.0,<2.0.0
+scipy>=1.13.0,<1.14.0
 
 # Computer Vision & Image Processing
-opencv-python
-pillow
+opencv-python>=4.8.0,<4.11.0
+pillow>=10.0.0
 
-# Data Science & Analysis
-numpy<2.0.0
-pandas
+# Data Science & Visualization
+pandas>=2.0.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
 
-# Data Visualization
-matplotlib
-seaborn
+# Utilities & Jupyter Kernel
+pyyaml>=6.0
+tqdm>=4.66.0
+ipykernel>=6.29.0
 
-# Utilities
-pyyaml
-tqdm
-ipykernel
+# Web Application (FastAPI, WebSockets, Jinja2 Templates)
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+jinja2>=3.1.0
+websockets>=12.0
 
-# Web Application (FastAPI & Real-time Server)
-fastapi
-uvicorn[standard]
-python-multipart
-websockets
+# Model Export & Accelerated Inference (Optional / Deployment)
+onnx>=1.16.0,<1.17.0
+onnxruntime>=1.18.0,<1.19.0

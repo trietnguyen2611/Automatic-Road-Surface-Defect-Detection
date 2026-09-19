@@ -1432,3 +1432,382 @@ html, body {
     font-weight: 400;
     letter-spacing: -0.8px;
 }
+
+/* =========================================================
+   FLEXI-YOLO & PAPER BENCHMARK STYLES (PLOS ONE 2025)
+   ========================================================= */
+
+.sidebar-section-header-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.btn-paper-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    font-size: 11.5px;
+    font-weight: 500;
+    font-family: var(--font-sans);
+    color: var(--primary);
+    background: rgba(204, 120, 92, 0.08);
+    border: 1px solid rgba(204, 120, 92, 0.25);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-paper-pill:hover {
+    background: rgba(204, 120, 92, 0.16);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+/* Model Segmented Group in Sidebar */
+.model-segmented-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.model-segment-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 12px;
+    background: var(--surface-card);
+    border: 1.5px solid var(--hairline);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    text-align: left;
+    transition: var(--transition);
+    position: relative;
+    width: 100%;
+}
+
+.model-segment-btn:hover {
+    background: #f7f3eb;
+    border-color: #d8cfc4;
+    transform: translateY(-1px);
+}
+
+.model-segment-btn.active {
+    background: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 4px 14px -2px rgba(204, 120, 92, 0.18), 0 0 0 1px var(--primary);
+}
+
+.segment-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 2px;
+}
+
+.segment-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    font-family: var(--font-sans);
+}
+
+.segment-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: var(--radius-pill);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tag-paper {
+    background: rgba(204, 120, 92, 0.15);
+    color: var(--primary);
+    border: 1px solid rgba(204, 120, 92, 0.3);
+}
+
+.tag-baseline {
+    background: rgba(108, 106, 100, 0.12);
+    color: var(--muted);
+    border: 1px solid rgba(108, 106, 100, 0.25);
+}
+
+.segment-sub {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.35;
+    margin-bottom: 6px;
+}
+
+.segment-metrics-mini {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+}
+
+.segment-metrics-mini span {
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    padding: 2px 6px;
+    background: var(--surface-soft);
+    border-radius: var(--radius-xs);
+    color: var(--body);
+}
+
+.model-segment-btn.active .segment-metrics-mini span {
+    background: rgba(204, 120, 92, 0.09);
+    color: var(--primary-active);
+}
+
+/* Model Stat Card */
+.model-stat-card {
+    border-left: 3px solid var(--primary);
+}
+
+.model-stat-name {
+    font-size: 17px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.badge-coral {
+    background: rgba(204, 120, 92, 0.12) !important;
+    color: var(--primary) !important;
+    border: 1px solid rgba(204, 120, 92, 0.25) !important;
+}
+
+/* Modal: Paper Benchmark */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(20, 20, 19, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.modal-backdrop.is-open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-dialog {
+    width: 92%;
+    max-width: 980px;
+    max-height: 88vh;
+    background: var(--canvas);
+    border: 1.5px solid var(--hairline);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 24px 60px -12px rgba(20, 20, 19, 0.35);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.96) translateY(12px);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-backdrop.is-open .modal-dialog {
+    transform: scale(1) translateY(0);
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    background: var(--surface-card);
+}
+
+.modal-header-text {
+    max-width: 86%;
+}
+
+.modal-badge-paper {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--primary);
+    background: rgba(204, 120, 92, 0.12);
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+    margin-bottom: 6px;
+}
+
+.modal-paper-title {
+    font-size: 21px;
+    line-height: 1.25;
+    color: var(--ink);
+    margin-bottom: 4px;
+}
+
+.modal-paper-authors {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.paper-doi-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--primary);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.paper-doi-link:hover {
+    color: var(--primary-active);
+    text-decoration: underline;
+}
+
+.modal-body-scrollable {
+    padding: 24px;
+    overflow-y: auto;
+    max-height: calc(88vh - 150px);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.paper-section-title {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: 12px;
+}
+
+/* 5 Innovation Pillars Grid */
+.pillars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+}
+
+.pillar-card {
+    background: #ffffff;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    transition: var(--transition);
+}
+
+.pillar-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-floating);
+}
+
+.pillar-icon {
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.pillar-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+    font-family: var(--font-sans);
+}
+
+.pillar-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+/* Tables Section in Modal */
+.table-header-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.table-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-pill);
+    color: var(--muted);
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--hairline);
+    background: #ffffff;
+}
+
+.benchmark-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+
+.benchmark-table th {
+    background: var(--surface-soft);
+    padding: 10px 14px;
+    font-weight: 600;
+    color: var(--body-strong);
+    border-bottom: 1px solid var(--hairline);
+    white-space: nowrap;
+}
+
+.benchmark-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--hairline-soft);
+    color: var(--body);
+}
+
+.benchmark-table tr:last-child td {
+    border-bottom: none;
+}
+
+.benchmark-table tr.highlight-row {
+    background: rgba(204, 120, 92, 0.08);
+    font-weight: 600;
+}
+
+.benchmark-table tr.highlight-row td {
+    color: var(--primary-active);
+}
+
+.modal-footer {
+    padding: 14px 24px;
+    border-top: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    background: var(--surface-card);
+}

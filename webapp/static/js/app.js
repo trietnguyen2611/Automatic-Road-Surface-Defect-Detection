@@ -1,10 +1,16 @@
 /**
- * RoadVision AI - Real-time Defect Detection Client Script
+ * Flexi-YOLO & YOLOv8n Baseline - Road Surface Defect Detection Client Script
+ * Reference: "Flexi-YOLO: A lightweight method for road crack detection in complex environments"
+ * PLOS ONE (2025) - https://doi.org/10.1371/journal.pone.0325993
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // State Management
+    // =========================================================
+    // 1. STATE MANAGEMENT
+    // =========================================================
     const state = {
+        activeModel: 'flexi_yolo', // 'flexi_yolo' | 'baseline'
+        activeModelName: 'Flexi-YOLO',
         conf: 0.25,
         iou: 0.45,
         classes: {
@@ -18,264 +24,356 @@ document.addEventListener('DOMContentLoaded', () => {
         ws: null,
         mediaStream: null,
         lastDetectionResult: null,
-        fpsTimer: null,
-        fpsCounter: 0,
-        currentFps: 0,
         sampleOffset: 0,
         sampleLimit: 24,
         sampleTotal: 0,
-        isLoadingSamples: false
+        isLoadingSamples: false,
+        fpsCounter: 0,
+        currentFps: 0
     };
 
-    // DOM Elements
+    // =========================================================
+    // 2. DOM ELEMENTS RESOLVER
+    // =========================================================
+    const getEl = (id) => document.getElementById(id);
+    const getAll = (sel) => document.querySelectorAll(sel);
+
     const elements = {
-        // Tabs
-        tabBtns: document.querySelectorAll('.tab-btn, .category-tab'),
-        tabContents: document.querySelectorAll('.tab-content, .tab-pane'),
+        // Navigation Tabs
+        tabBtns: getAll('.category-tab, .tab-btn'),
+        tabPanes: getAll('.tab-pane, .tab-content'),
 
-        // Sidebar & Settings Popover Controls
-        sidebar: document.getElementById('settingsSidebar'),
-        btnSettingsToggle: document.getElementById('btnSettingsToggle'),
-        settingsMenu: document.getElementById('settingsMenu'),
-        btnCloseSettings: document.getElementById('btnCloseSettings'),
-        btnToggleAllClasses: document.getElementById('btnToggleAllClasses'),
-        settingsActiveIndicator: document.getElementById('settingsActiveIndicator'),
+        // Model Selector Buttons
+        btnSelectFlexi: getEl('btnSelectFlexi'),
+        btnSelectBaseline: getEl('btnSelectBaseline'),
+        modelSegmentBtns: getAll('.model-segment-btn'),
+        systemStatusBadge: getEl('systemStatusBadge'),
+        systemStatusText: getEl('systemStatusText'),
+        hudActiveModelName: getEl('hudActiveModelName'),
+        hudGflopsBadge: getEl('hudGflopsBadge'),
+        webcamModelTag: getEl('webcamModelTag'),
+        hudEngineTag: getEl('hudEngineTag'),
+        resultModelTag: getEl('resultModelTag'),
+        popoverModelBadge: getEl('popoverModelBadge'),
 
-        // Sliders & Filters
-        sliderConf: document.getElementById('sliderConf'),
-        sliderIou: document.getElementById('sliderIou'),
-        valConf: document.getElementById('valConf'),
-        valIou: document.getElementById('valIou'),
-        chkPothole: document.getElementById('chkPothole'),
-        chkCrack: document.getElementById('chkCrack'),
-        chkManhole: document.getElementById('chkManhole'),
-        chkShowLabels: document.getElementById('chkShowLabels'),
-        chkShowConf: document.getElementById('chkShowConf'),
-        btnReloadModel: document.getElementById('btnReloadModel'),
-        systemStatusBadge: document.getElementById('systemStatusBadge'),
-        systemStatusText: document.getElementById('systemStatusText'),
+        // Paper Benchmark Modal
+        btnOpenPaperModal: getEl('btnOpenPaperModal'),
+        modalPaperBenchmark: getEl('modalPaperBenchmark'),
+        btnClosePaperModal: getEl('btnClosePaperModal'),
+        btnModalCloseAction: getEl('btnModalCloseAction'),
+        btnModalSwitchToFlexi: getEl('btnModalSwitchToFlexi'),
 
-        // HUD Stats Counters
-        hudTotalDefects: document.getElementById('hudTotalDefects'),
-        hudPotholeCount: document.getElementById('hudPotholeCount'),
-        hudCrackCount: document.getElementById('hudCrackCount'),
-        hudManholeCount: document.getElementById('hudManholeCount'),
+        // Settings Popover & Controls
+        btnSettingsToggle: getEl('btnSettingsToggle'),
+        settingsMenu: getEl('settingsMenu'),
+        btnCloseSettings: getEl('btnCloseSettings'),
+        sliderConf: getEl('sliderConf'),
+        sliderIou: getEl('sliderIou'),
+        valConf: getEl('valConf'),
+        valIou: getEl('valIou'),
+        chkPothole: getEl('chkPothole'),
+        chkCrack: getEl('chkCrack'),
+        chkManhole: getEl('chkManhole'),
+        btnToggleAllClasses: getEl('btnToggleAllClasses'),
+        settingsActiveIndicator: getEl('settingsActiveIndicator'),
+        chkShowLabels: getEl('chkShowLabels'),
+        chkShowConf: getEl('chkShowConf'),
+        btnReloadModel: getEl('btnReloadModel'),
+
+        // HUD Stats
+        hudTotalDefects: getEl('hudTotalDefects'),
+        hudPotholeCount: getEl('hudPotholeCount'),
+        hudCrackCount: getEl('hudCrackCount'),
+        hudManholeCount: getEl('hudManholeCount'),
+        hudFps: getEl('hudFps'),
+        hudLatency: getEl('hudLatency'),
 
         // Webcam Stream
-        video: document.getElementById('webcamVideo'),
-        canvas: document.getElementById('streamCanvas'),
-        placeholder: document.getElementById('streamPlaceholder'),
-        btnStartCamera: document.getElementById('btnStartCamera'),
-        btnToggleCamera: document.getElementById('btnToggleCamera'),
-        btnCameraText: document.getElementById('btnCameraText'),
-        btnCameraIcon: document.getElementById('btnCameraIcon'),
-        btnSnapshot: document.getElementById('btnSnapshot'),
-        metricFps: document.getElementById('metricFps'),
-        metricLatency: document.getElementById('metricLatency'),
-        cameraDeviceLabel: document.getElementById('cameraDeviceLabel'),
+        video: getEl('webcamVideo'),
+        canvas: getEl('overlayCanvas') || getEl('streamCanvas'),
+        btnStartWebcam: getEl('btnStartWebcam'),
+        btnStopWebcam: getEl('btnStopWebcam'),
+        webcamPlaceholder: getEl('webcamPlaceholder'),
+        hudResTag: getEl('hudResTag'),
+        streamDot: getEl('streamDot'),
 
-        // Image Inspection
-        dropzone: document.getElementById('imageDropzone'),
-        fileInput: document.getElementById('fileInput'),
-        inspectionResults: document.getElementById('inspectionResults'),
-        annotatedImage: document.getElementById('annotatedImage'),
-        resultFilename: document.getElementById('resultFilename'),
-        resultMeta: document.getElementById('resultMeta'),
-        defectTableBody: document.getElementById('defectTableBody'),
-        noDefectMsg: document.getElementById('noDefectMsg'),
-        btnDownloadAnnotated: document.getElementById('btnDownloadAnnotated'),
-        btnExportJson: document.getElementById('btnExportJson'),
+        // Upload Tab
+        dropzoneArea: getEl('dropzoneArea'),
+        fileInput: getEl('fileInput'),
+        btnBrowseFile: getEl('btnBrowseFile'),
+        uploadResultCard: getEl('uploadResultCard'),
+        resultImage: getEl('resultImage'),
+        resultFilename: getEl('resultFilename'),
+        defectTableBody: getEl('defectTableBody'),
+        noDefectMsg: getEl('noDefectMsg'),
+        btnClearUpload: getEl('btnClearUpload'),
 
-        // Samples Gallery
-        samplesGrid: document.getElementById('samplesGrid'),
-        galleryCountBadge: document.getElementById('galleryCountBadge'),
-        galleryScrollContainer: document.getElementById('galleryScrollContainer'),
-        btnLoadMoreSamples: document.getElementById('btnLoadMoreSamples'),
-        remainingCountBadge: document.getElementById('remainingCountBadge'),
-        galleryLoadingSpinner: document.getElementById('galleryLoadingSpinner'),
-        galleryEndMsg: document.getElementById('galleryEndMsg'),
-        workspaceFrame: document.querySelector('.workspace-frame')
+        // Samples Gallery Tab
+        samplesGrid: getEl('samplesGrid'),
+        galleryCountBadge: getEl('galleryCountBadge'),
+        btnLoadMoreSamples: getEl('btnLoadMoreSamples'),
+        remainingCountBadge: getEl('remainingCountBadge'),
+        galleryLoadingSpinner: getEl('galleryLoadingSpinner'),
+        galleryEndMsg: getEl('galleryEndMsg')
     };
 
-    const ctx = elements.canvas.getContext('2d');
+    const ctx = elements.canvas ? elements.canvas.getContext('2d') : null;
     const offscreenCanvas = document.createElement('canvas');
     const offscreenCtx = offscreenCanvas.getContext('2d');
 
     // =========================================================
-    // 1. NAVIGATION & FLOATING BLUR SETTINGS POPOVER
+    // 3. TOAST NOTIFICATION UTILITY
+    // =========================================================
+    function showToast(message, type = 'info') {
+        const existingToast = document.querySelector('.app-toast');
+        if (existingToast) existingToast.remove();
+
+        const toast = document.createElement('div');
+        toast.className = `app-toast toast-${type}`;
+        toast.innerHTML = `<span>${message}</span>`;
+        document.body.appendChild(toast);
+
+        setTimeout(() => toast.classList.add('toast-show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('toast-show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // =========================================================
+    // 4. MODEL SELECTION & SWITCHING
+    // =========================================================
+    async function switchModel(mode) {
+        if (state.activeModel === mode) return;
+
+        try {
+            showToast(`🔄 Đang chuyển đổi sang mô hình: ${mode === 'flexi_yolo' ? 'Flexi-YOLO (Paper)' : 'YOLOv8n (Baseline)'}...`);
+            const res = await fetch('/api/model/select', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode })
+            });
+
+            if (!res.ok) throw new Error('Lỗi chuyển đổi mô hình từ server');
+            const data = await res.json();
+            const info = data.info;
+
+            state.activeModel = mode;
+            state.activeModelName = info.name;
+
+            // Cập nhật trạng thái các nút chọn mô hình
+            elements.modelSegmentBtns.forEach(btn => {
+                const isTarget = btn.getAttribute('data-model') === mode;
+                btn.classList.toggle('active', isTarget);
+            });
+
+            // Cập nhật text & badge trên giao diện
+            if (elements.systemStatusText) elements.systemStatusText.textContent = info.name;
+            if (elements.hudActiveModelName) elements.hudActiveModelName.textContent = info.name;
+            if (elements.hudGflopsBadge) elements.hudGflopsBadge.textContent = `${info.gflops} GFLOPS`;
+            if (elements.webcamModelTag) elements.webcamModelTag.textContent = `Mô hình: ${info.name}`;
+            if (elements.hudEngineTag) elements.hudEngineTag.textContent = info.name;
+            if (elements.resultModelTag) elements.resultModelTag.textContent = info.name;
+            if (elements.popoverModelBadge) elements.popoverModelBadge.textContent = `${mode === 'flexi_yolo' ? 'Flexi-YOLO' : 'YOLOv8n'} Config`;
+
+            showToast(`✅ Đã kích hoạt thành công: ${info.name}!`, 'success');
+        } catch (err) {
+            console.error('Lỗi chuyển đổi mô hình:', err);
+            showToast(`⚠️ Không thể chuyển đổi mô hình: ${err.message}`, 'error');
+        }
+    }
+
+    // Bind sự kiện chọn mô hình
+    if (elements.btnSelectFlexi) {
+        elements.btnSelectFlexi.addEventListener('click', () => switchModel('flexi_yolo'));
+    }
+    if (elements.btnSelectBaseline) {
+        elements.btnSelectBaseline.addEventListener('click', () => switchModel('baseline'));
+    }
+
+    // =========================================================
+    // 5. PAPER BENCHMARK MODAL CONTROLS
+    // =========================================================
+    function openPaperModal() {
+        if (elements.modalPaperBenchmark) {
+            elements.modalPaperBenchmark.classList.add('is-open');
+            elements.modalPaperBenchmark.setAttribute('aria-hidden', 'false');
+        }
+    }
+
+    function closePaperModal() {
+        if (elements.modalPaperBenchmark) {
+            elements.modalPaperBenchmark.classList.remove('is-open');
+            elements.modalPaperBenchmark.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    if (elements.btnOpenPaperModal) {
+        elements.btnOpenPaperModal.addEventListener('click', openPaperModal);
+    }
+    if (elements.systemStatusBadge) {
+        elements.systemStatusBadge.addEventListener('click', openPaperModal);
+    }
+    if (elements.btnClosePaperModal) {
+        elements.btnClosePaperModal.addEventListener('click', closePaperModal);
+    }
+    if (elements.btnModalCloseAction) {
+        elements.btnModalCloseAction.addEventListener('click', closePaperModal);
+    }
+    if (elements.modalPaperBenchmark) {
+        elements.modalPaperBenchmark.addEventListener('click', (e) => {
+            if (e.target === elements.modalPaperBenchmark) closePaperModal();
+        });
+    }
+    if (elements.btnModalSwitchToFlexi) {
+        elements.btnModalSwitchToFlexi.addEventListener('click', () => {
+            switchModel('flexi_yolo');
+            closePaperModal();
+        });
+    }
+
+    // Phím tắt ESC đóng Modal / Popover
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closePaperModal();
+            closeSettingsPopover();
+        }
+    });
+
+    // =========================================================
+    // 6. NAVIGATION TABS
     // =========================================================
     elements.tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            const target = btn.dataset.tab;
+            const targetTab = btn.getAttribute('data-tab');
             elements.tabBtns.forEach(b => b.classList.remove('active'));
-            elements.tabContents.forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById(target).classList.add('active');
+            elements.tabPanes.forEach(p => p.classList.remove('active'));
 
-            if (target === 'tab-samples' && elements.samplesGrid.children.length === 0) {
-                loadSamples();
+            btn.classList.add('active');
+            const targetPane = document.getElementById(targetTab);
+            if (targetPane) targetPane.classList.add('active');
+
+            if (targetTab === 'tab-samples' && state.sampleTotal === 0) {
+                loadSamples(true);
             }
         });
     });
 
-    // Toggle Floating Blur Settings Popover
-    function toggleSettingsMenu(forceState = null) {
+    // =========================================================
+    // 7. SETTINGS POPOVER
+    // =========================================================
+    function toggleSettingsPopover() {
         if (!elements.settingsMenu) return;
-        const isOpen = elements.settingsMenu.classList.contains('open');
-        const shouldOpen = forceState !== null ? forceState : !isOpen;
+        const isVisible = elements.settingsMenu.classList.contains('is-visible');
+        if (isVisible) closeSettingsPopover();
+        else openSettingsPopover();
+    }
 
-        if (shouldOpen) {
-            elements.settingsMenu.classList.add('open');
-            elements.btnSettingsToggle?.classList.add('active');
-            elements.btnSettingsToggle?.setAttribute('aria-expanded', 'true');
-        } else {
-            elements.settingsMenu.classList.remove('open');
-            elements.btnSettingsToggle?.classList.remove('active');
-            elements.btnSettingsToggle?.setAttribute('aria-expanded', 'false');
-        }
+    function openSettingsPopover() {
+        if (!elements.settingsMenu) return;
+        elements.settingsMenu.classList.add('is-visible');
+        if (elements.btnSettingsToggle) elements.btnSettingsToggle.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeSettingsPopover() {
+        if (!elements.settingsMenu) return;
+        elements.settingsMenu.classList.remove('is-visible');
+        if (elements.btnSettingsToggle) elements.btnSettingsToggle.setAttribute('aria-expanded', 'false');
     }
 
     if (elements.btnSettingsToggle) {
         elements.btnSettingsToggle.addEventListener('click', (e) => {
             e.stopPropagation();
-            toggleSettingsMenu();
+            toggleSettingsPopover();
         });
     }
-
     if (elements.btnCloseSettings) {
-        elements.btnCloseSettings.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleSettingsMenu(false);
+        elements.btnCloseSettings.addEventListener('click', closeSettingsPopover);
+    }
+    document.addEventListener('click', (e) => {
+        if (elements.settingsMenu && !elements.settingsMenu.contains(e.target) && e.target !== elements.btnSettingsToggle) {
+            closeSettingsPopover();
+        }
+    });
+
+    // Sliders
+    if (elements.sliderConf && elements.valConf) {
+        elements.sliderConf.addEventListener('input', (e) => {
+            state.conf = parseFloat(e.target.value);
+            elements.valConf.textContent = `${Math.round(state.conf * 100)}%`;
+        });
+    }
+    if (elements.sliderIou && elements.valIou) {
+        elements.sliderIou.addEventListener('input', (e) => {
+            state.iou = parseFloat(e.target.value);
+            elements.valIou.textContent = `${Math.round(state.iou * 100)}%`;
         });
     }
 
-    // Đóng popover khi click ra ngoài
-    document.addEventListener('click', (e) => {
-        if (!elements.settingsMenu || !elements.settingsMenu.classList.contains('open')) return;
-        if (!elements.settingsMenu.contains(e.target) && !elements.btnSettingsToggle?.contains(e.target)) {
-            toggleSettingsMenu(false);
-        }
-    });
-
-    // Đóng khi nhấn phím Escape
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && elements.settingsMenu?.classList.contains('open')) {
-            toggleSettingsMenu(false);
-        }
-    });
-
-    // Slider Controls
-    elements.sliderConf.addEventListener('input', (e) => {
-        state.conf = parseFloat(e.target.value);
-        elements.valConf.textContent = `${Math.round(state.conf * 100)}%`;
-    });
-
-    elements.sliderIou.addEventListener('input', (e) => {
-        state.iou = parseFloat(e.target.value);
-        elements.valIou.textContent = `${Math.round(state.iou * 100)}%`;
-    });
-
-    // =========================================================
-    // REDESIGNED DEFECT CLASS SELECTOR INTERACTIONS
-    // =========================================================
-    const classConfigs = [
-        { el: elements.chkPothole, name: 'Pothole', tileClass: '.tile-pothole' },
-        { el: elements.chkCrack, name: 'Crack', tileClass: '.tile-crack' },
-        { el: elements.chkManhole, name: 'Manhole', tileClass: '.tile-manhole' }
+    // Class filters
+    const classCheckboxes = [
+        { el: elements.chkPothole, key: 'Pothole' },
+        { el: elements.chkCrack, key: 'Crack' },
+        { el: elements.chkManhole, key: 'Manhole' }
     ];
 
-    function updateClassFilterUI() {
-        let activeCount = 0;
-        classConfigs.forEach(cfg => {
-            const isChecked = !!state.classes[cfg.name];
-            if (isChecked) activeCount++;
-
-            const tile = document.querySelector(cfg.tileClass);
-            if (tile) {
-                tile.classList.toggle('is-active', isChecked);
-                const icon = tile.querySelector('.tile-status-icon');
-                if (icon) icon.textContent = isChecked ? '✓' : '–';
-            }
-        });
-
-        // Cập nhật số lượng lớp trên nút cài đặt
+    function updateClassIndicator() {
+        const count = Object.values(state.classes).filter(Boolean).length;
         if (elements.settingsActiveIndicator) {
-            elements.settingsActiveIndicator.textContent = activeCount === 3
-                ? '3/3 lớp'
-                : (activeCount === 0 ? 'Tắt hết' : `${activeCount}/3 lớp`);
+            elements.settingsActiveIndicator.textContent = `${count}/3 lớp`;
         }
-
-        // Cập nhật nhãn nút Chọn tất cả
-        if (elements.btnToggleAllClasses) {
-            elements.btnToggleAllClasses.textContent = activeCount === 3 ? 'Bỏ chọn tất cả' : 'Chọn tất cả';
-        }
-
-        // Cập nhật lại kết quả kiểm định ảnh (nếu có)
-        refreshInspectionTable();
     }
 
-    classConfigs.forEach(({ el, name }) => {
-        if (el) {
-            el.addEventListener('change', (e) => {
-                state.classes[name] = e.target.checked;
-                updateClassFilterUI();
-            });
-        }
+    classCheckboxes.forEach(({ el, key }) => {
+        if (!el) return;
+        el.addEventListener('change', () => {
+            state.classes[key] = el.checked;
+            const tile = el.closest('.defect-tile');
+            if (tile) tile.classList.toggle('is-active', el.checked);
+            updateClassIndicator();
+        });
     });
 
     if (elements.btnToggleAllClasses) {
-        elements.btnToggleAllClasses.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const anyActive = Object.values(state.classes).some(v => v);
-            const targetState = !anyActive; // Nếu đang bật ít nhất 1 cái thì tắt hết, nếu tắt hết thì bật hết
-
-            elements.chkPothole.checked = targetState;
-            elements.chkCrack.checked = targetState;
-            elements.chkManhole.checked = targetState;
-
-            state.classes['Pothole'] = targetState;
-            state.classes['Crack'] = targetState;
-            state.classes['Manhole'] = targetState;
-
-            updateClassFilterUI();
+        elements.btnToggleAllClasses.addEventListener('click', () => {
+            const allActive = Object.values(state.classes).every(Boolean);
+            const newState = !allActive;
+            classCheckboxes.forEach(({ el, key }) => {
+                if (el) {
+                    el.checked = newState;
+                    state.classes[key] = newState;
+                    const tile = el.closest('.defect-tile');
+                    if (tile) tile.classList.toggle('is-active', newState);
+                }
+            });
+            elements.btnToggleAllClasses.textContent = newState ? 'Bỏ chọn tất cả' : 'Chọn tất cả';
+            updateClassIndicator();
         });
     }
 
-    elements.chkShowLabels.addEventListener('change', (e) => { state.showLabels = e.target.checked; });
-    elements.chkShowConf.addEventListener('change', (e) => { state.showConf = e.target.checked; });
-
-    // Reload model
-    elements.btnReloadModel.addEventListener('click', async () => {
-        try {
-            elements.btnReloadModel.disabled = true;
-            elements.btnReloadModel.textContent = 'Đang tải lại...';
-            const res = await fetch('/api/model/reload', { method: 'POST' });
-            const data = await res.json();
-            elements.systemStatusText.textContent = `Model: ${data.model_file}`;
-            alert(`✅ Đã tải lại mô hình thành công: ${data.model_file}`);
-        } catch (err) {
-            alert(`⚠️ Lỗi khi tải lại mô hình: ${err.message}`);
-        } finally {
-            elements.btnReloadModel.disabled = false;
-            elements.btnReloadModel.innerHTML = `
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="23 4 23 10 17 10"></polyline>
-                    <polyline points="1 20 1 14 7 14"></polyline>
-                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
-                <span>Tải lại mô hình</span>
-            `;
-        }
-    });
+    // Tải lại mô hình
+    if (elements.btnReloadModel) {
+        elements.btnReloadModel.addEventListener('click', async () => {
+            try {
+                showToast('🔄 Đang nạp lại trọng số mô hình...');
+                const res = await fetch('/api/model/reload', { method: 'POST' });
+                const data = await res.json();
+                showToast(`✅ Đã tải lại mô hình: ${data.model_name || data.model_file}!`, 'success');
+            } catch (err) {
+                showToast(`⚠️ Không thể tải lại: ${err.message}`, 'error');
+            }
+        });
+    }
 
     // =========================================================
-    // 2. WEBCAM REAL-TIME STREAMING (WEBSOCKET + CANVAS)
+    // 8. WEBCAM STREAMING (WEBSOCKET + CANVAS)
     // =========================================================
-    elements.btnStartCamera.addEventListener('click', startWebcam);
-    elements.btnToggleCamera.addEventListener('click', () => {
-        if (state.isStreaming) stopWebcam();
-        else startWebcam();
-    });
+    if (elements.btnStartWebcam) {
+        elements.btnStartWebcam.addEventListener('click', startWebcam);
+    }
+    if (elements.btnStopWebcam) {
+        elements.btnStopWebcam.addEventListener('click', stopWebcam);
+    }
 
     async function startWebcam() {
         try {
@@ -289,25 +387,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             state.mediaStream = stream;
             elements.video.srcObject = stream;
-            elements.placeholder.style.display = 'none';
-            elements.btnToggleCamera.style.display = 'inline-flex';
-            elements.btnSnapshot.disabled = false;
-            elements.btnCameraIcon.textContent = '⏹';
-            elements.btnCameraText.textContent = 'Dừng Camera';
+            if (elements.webcamPlaceholder) elements.webcamPlaceholder.style.display = 'none';
+            if (elements.btnStartWebcam) elements.btnStartWebcam.disabled = true;
+            if (elements.btnStopWebcam) elements.btnStopWebcam.disabled = false;
+            if (elements.streamDot) elements.streamDot.classList.add('dot-live');
             state.isStreaming = true;
 
-            const videoTrack = stream.getVideoTracks()[0];
-            elements.cameraDeviceLabel.textContent = `Camera: ${videoTrack.label || 'Đang phát'}`;
-
             elements.video.onloadedmetadata = () => {
-                elements.canvas.width = elements.video.videoWidth || 640;
-                elements.canvas.height = elements.video.videoHeight || 360;
+                if (elements.canvas) {
+                    elements.canvas.width = elements.video.videoWidth || 640;
+                    elements.canvas.height = elements.video.videoHeight || 360;
+                }
                 offscreenCanvas.width = 320;
                 offscreenCanvas.height = 180;
                 connectWebSocket();
             };
         } catch (err) {
-            console.error('Webcam error:', err);
+            console.error('Lỗi webcam:', err);
             alert(`⚠️ Không thể truy cập Camera: ${err.message}. Vui lòng cho phép quyền truy cập webcam trên trình duyệt.`);
         }
     }
@@ -322,13 +418,16 @@ document.addEventListener('DOMContentLoaded', () => {
             state.ws.close();
             state.ws = null;
         }
-        elements.video.srcObject = null;
-        elements.placeholder.style.display = 'flex';
-        elements.btnToggleCamera.style.display = 'none';
-        elements.btnSnapshot.disabled = true;
-        ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-        elements.metricFps.textContent = '0';
-        elements.metricLatency.textContent = '0';
+        if (elements.video) elements.video.srcObject = null;
+        if (elements.webcamPlaceholder) elements.webcamPlaceholder.style.display = 'flex';
+        if (elements.btnStartWebcam) elements.btnStartWebcam.disabled = false;
+        if (elements.btnStopWebcam) elements.btnStopWebcam.disabled = true;
+        if (elements.streamDot) elements.streamDot.classList.remove('dot-live');
+
+        if (ctx && elements.canvas) {
+            ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+        }
+        updateHudStats({ total: 0, counts: { Pothole: 0, Crack: 0, Manhole: 0 }, fps: 0, latency_ms: 0 });
     }
 
     function connectWebSocket() {
@@ -344,390 +443,300 @@ document.addEventListener('DOMContentLoaded', () => {
         state.ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                renderDetections(data);
+                renderWebcamDetections(data);
             } catch (err) {
                 console.error('Frame decode error:', err);
             }
         };
 
-        state.ws.onerror = (err) => {
-            console.warn('WebSocket error, falling back to HTTP POST loop:', err);
-        };
-
+        state.ws.onerror = (err) => console.error('WebSocket Error:', err);
         state.ws.onclose = () => {
-            console.log('WebSocket closed.');
+            if (state.isStreaming) {
+                setTimeout(connectWebSocket, 1500);
+            }
         };
     }
 
-    let isWaitingResponse = false;
-    let lastFrameTime = performance.now();
-    let frameCount = 0;
-
+    let isProcessingFrame = false;
     function processFrameLoop() {
-        if (!state.isStreaming) return;
+        if (!state.isStreaming || !state.ws || state.ws.readyState !== WebSocket.OPEN) return;
 
-        // Tính toán client-side FPS
-        frameCount++;
-        const now = performance.now();
-        if (now - lastFrameTime >= 1000) {
-            state.currentFps = Math.round((frameCount * 1000) / (now - lastFrameTime));
-            elements.metricFps.textContent = state.currentFps;
-            frameCount = 0;
-            lastFrameTime = now;
-        }
+        if (!isProcessingFrame && elements.video && elements.video.videoWidth > 0) {
+            try {
+                offscreenCtx.drawImage(elements.video, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+                const frameData = offscreenCanvas.toDataURL('image/jpeg', 0.6);
 
-        if (state.ws && state.ws.readyState === WebSocket.OPEN && !isWaitingResponse) {
-            // Vẽ frame video sang offscreen canvas nhỏ (320x180) để tăng tốc độ truyền tải
-            offscreenCtx.drawImage(elements.video, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
-            const frameBase64 = offscreenCanvas.toDataURL('image/jpeg', 0.6);
-
-            isWaitingResponse = true;
-            state.ws.send(JSON.stringify({
-                image: frameBase64,
-                conf: state.conf,
-                iou: state.iou
-            }));
+                state.ws.send(JSON.stringify({
+                    image: frameData,
+                    conf: state.conf,
+                    iou: state.iou
+                }));
+                isProcessingFrame = true;
+            } catch (e) {
+                console.error('Send frame error:', e);
+            }
         }
 
         requestAnimationFrame(processFrameLoop);
     }
 
-    function renderDetections(data) {
-        isWaitingResponse = false;
-        if (!state.isStreaming) return;
+    function renderWebcamDetections(data) {
+        isProcessingFrame = false;
+        if (!ctx || !elements.canvas) return;
 
-        const cw = elements.canvas.width;
-        const ch = elements.canvas.height;
-        const scaleX = cw / offscreenCanvas.width;
-        const scaleY = ch / offscreenCanvas.height;
+        ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
 
-        // 1. Vẽ khung hình video gốc
-        ctx.drawImage(elements.video, 0, 0, cw, ch);
+        const boxes = data.boxes || [];
+        const scaleX = elements.canvas.width / (elements.video.videoWidth || 640);
+        const scaleY = elements.canvas.height / (elements.video.videoHeight || 360);
 
-        if (data.latency_ms) {
-            elements.metricLatency.textContent = data.latency_ms;
-        }
+        const filteredBoxes = boxes.filter(b => state.classes[b.class_name] !== false);
 
-        // 2. Cập nhật thống kê HUD theo các lớp được kích hoạt
-        if (data.counts) {
-            const pCount = state.classes['Pothole'] ? (data.counts['Pothole'] || 0) : 0;
-            const cCount = state.classes['Crack'] ? (data.counts['Crack'] || 0) : 0;
-            const mCount = state.classes['Manhole'] ? (data.counts['Manhole'] || 0) : 0;
-            elements.hudPotholeCount.textContent = pCount;
-            elements.hudCrackCount.textContent = cCount;
-            elements.hudManholeCount.textContent = mCount;
-            elements.hudTotalDefects.textContent = pCount + cCount + mCount;
-        }
+        filteredBoxes.forEach(item => {
+            const [x1, y1, x2, y2] = item.box.map((val, idx) => (idx % 2 === 0 ? val * scaleX : val * scaleY));
+            const color = item.color || '#e8a55a';
 
-        // 3. Vẽ các Bounding Boxes
-        if (data.boxes && data.boxes.length > 0) {
-            data.boxes.forEach(item => {
-                if (!state.classes[item.class_name]) return; // Bỏ qua nếu người dùng uncheck
+            // Vẽ viền hộp
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
 
-                const [bx1, by1, bx2, by2] = item.box;
-                const x1 = bx1 * scaleX;
-                const y1 = by1 * scaleY;
-                const x2 = bx2 * scaleX;
-                const y2 = by2 * scaleY;
-                const w = x2 - x1;
-                const h = y2 - y1;
+            // Vẽ nhãn
+            const label = `${item.class_name} ${Math.round(item.confidence * 100)}%`;
+            ctx.font = '600 12.5px Inter, sans-serif';
+            const textWidth = ctx.measureText(label).width;
 
-                const color = item.color || (item.class_name === 'Pothole' ? '#c64545' : (item.class_name === 'Crack' ? '#e8a55a' : '#5db8a6'));
+            ctx.fillStyle = color;
+            ctx.fillRect(x1, Math.max(0, y1 - 22), textWidth + 8, 22);
 
-                // Vẽ Bounding Box
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2.5;
-                ctx.strokeRect(x1, y1, w, h);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(label, x1 + 4, Math.max(14, y1 - 6));
+        });
 
-                // Vẽ góc nổi bật
-                const cornerLen = Math.min(12, w / 4, h / 4);
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                // TL
-                ctx.moveTo(x1, y1 + cornerLen); ctx.lineTo(x1, y1); ctx.lineTo(x1 + cornerLen, y1);
-                // TR
-                ctx.moveTo(x2 - cornerLen, y1); ctx.lineTo(x2, y1); ctx.lineTo(x2, y1 + cornerLen);
-                // BL
-                ctx.moveTo(x1, y2 - cornerLen); ctx.lineTo(x1, y2); ctx.lineTo(x1 + cornerLen, y2);
-                // BR
-                ctx.moveTo(x2 - cornerLen, y2); ctx.lineTo(x2, y2); ctx.lineTo(x2, y2 - cornerLen);
-                ctx.stroke();
+        // Cập nhật số liệu HUD
+        const counts = { Pothole: 0, Crack: 0, Manhole: 0 };
+        filteredBoxes.forEach(b => {
+            if (counts[b.class_name] !== undefined) counts[b.class_name]++;
+        });
 
-                // Vẽ nhãn chữ
-                if (state.showLabels) {
-                    const labelText = state.showConf
-                        ? `${item.class_name} ${Math.round(item.confidence * 100)}%`
-                        : item.class_name;
-
-                    ctx.font = '500 12px Inter, sans-serif';
-                    const textWidth = ctx.measureText(labelText).width;
-                    const tagHeight = 18;
-                    const tagY = Math.max(0, y1 - tagHeight);
-
-                    ctx.fillStyle = color;
-                    ctx.fillRect(x1, tagY, textWidth + 8, tagHeight);
-
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillText(labelText, x1 + 4, tagY + 13);
-                }
-            });
-        }
+        updateHudStats({
+            total: filteredBoxes.length,
+            counts: counts,
+            fps: data.fps || 0,
+            latency_ms: data.latency_ms || 0
+        });
     }
 
-    // Chụp ảnh từ webcam
-    elements.btnSnapshot.addEventListener('click', () => {
-        const link = document.createElement('a');
-        link.download = `road-defect-snapshot-${Date.now()}.png`;
-        link.href = elements.canvas.toDataURL('image/png');
-        link.click();
-    });
+    function updateHudStats({ total = 0, counts = {}, fps = 0, latency_ms = 0 }) {
+        if (elements.hudTotalDefects) elements.hudTotalDefects.textContent = total;
+        if (elements.hudPotholeCount) elements.hudPotholeCount.textContent = counts['Pothole'] || 0;
+        if (elements.hudCrackCount) elements.hudCrackCount.textContent = counts['Crack'] || 0;
+        if (elements.hudManholeCount) elements.hudManholeCount.textContent = counts['Manhole'] || 0;
+        if (elements.hudFps) elements.hudFps.textContent = Math.round(fps);
+        if (elements.hudLatency) elements.hudLatency.textContent = `${latency_ms} ms`;
+        if (elements.hudResTag) elements.hudResTag.textContent = `FPS: ${Math.round(fps)} · ${latency_ms}ms`;
+    }
 
     // =========================================================
-    // 3. IMAGE UPLOAD & INSPECTION
+    // 9. IMAGE UPLOAD INSPECTION
     // =========================================================
-    elements.dropzone.addEventListener('click', () => elements.fileInput.click());
+    if (elements.btnBrowseFile && elements.fileInput) {
+        elements.btnBrowseFile.addEventListener('click', () => elements.fileInput.click());
+    }
 
-    elements.dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        elements.dropzone.classList.add('dragover');
-    });
+    if (elements.fileInput) {
+        elements.fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                processUploadedFile(e.target.files[0]);
+            }
+        });
+    }
 
-    elements.dropzone.addEventListener('dragleave', () => {
-        elements.dropzone.classList.remove('dragover');
-    });
+    if (elements.dropzoneArea) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            elements.dropzoneArea.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                elements.dropzoneArea.classList.add('is-dragover');
+            });
+        });
 
-    elements.dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        elements.dropzone.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) {
-            handleImageUpload(e.dataTransfer.files[0]);
-        }
-    });
+        ['dragleave', 'drop'].forEach(eventName => {
+            elements.dropzoneArea.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                elements.dropzoneArea.classList.remove('is-dragover');
+            });
+        });
 
-    elements.fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            handleImageUpload(e.target.files[0]);
-        }
-    });
+        elements.dropzoneArea.addEventListener('drop', (e) => {
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                processUploadedFile(e.dataTransfer.files[0]);
+            }
+        });
+    }
 
-    async function handleImageUpload(file) {
-        if (!file.type.startsWith('image/')) {
-            alert('Vui lòng chọn file hình ảnh (JPG, PNG, WEBP).');
-            return;
-        }
+    if (elements.btnClearUpload) {
+        elements.btnClearUpload.addEventListener('click', () => {
+            if (elements.uploadResultCard) elements.uploadResultCard.style.display = 'none';
+            if (elements.dropzoneArea) elements.dropzoneArea.style.display = 'block';
+            updateHudStats({ total: 0, counts: {} });
+        });
+    }
 
+    async function processUploadedFile(file) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('conf', state.conf);
         formData.append('iou', state.iou);
 
-        elements.dropzone.style.opacity = '0.5';
+        showToast(`🔍 Đang phân tích ảnh bằng mô hình: ${state.activeModelName}...`);
+
         try {
             const res = await fetch('/api/predict/image', {
                 method: 'POST',
                 body: formData
             });
 
-            if (!res.ok) throw new Error(`Server returned ${res.status}`);
+            if (!res.ok) throw new Error('Không thể phân tích hình ảnh');
             const data = await res.json();
-            displayImageResult(data);
+            renderUploadResult(data, file.name);
+            showToast('✅ Phân tích ảnh hoàn tất!', 'success');
         } catch (err) {
-            console.error('Upload detection error:', err);
-            alert(`⚠️ Lỗi khi phát hiện khuyết tật: ${err.message}`);
-        } finally {
-            elements.dropzone.style.opacity = '1';
+            console.error('Upload inspection error:', err);
+            showToast(`⚠️ Lỗi phân tích: ${err.message}`, 'error');
         }
     }
 
-    function displayImageResult(data) {
-        state.lastDetectionResult = data;
-        elements.inspectionResults.style.display = 'flex';
-        elements.annotatedImage.src = data.image_base64;
-        elements.resultFilename.textContent = data.filename || 'Uploaded Image';
-        elements.resultMeta.textContent = `${data.image_size.width}x${data.image_size.height} • ${data.latency_ms}ms • ${data.model_used}`;
+    function renderUploadResult(data, filename) {
+        if (elements.dropzoneArea) elements.dropzoneArea.style.display = 'none';
+        if (elements.uploadResultCard) elements.uploadResultCard.style.display = 'block';
 
-        refreshInspectionTable();
+        if (elements.resultFilename) elements.resultFilename.textContent = filename || data.filename || 'image.jpg';
+        if (elements.resultModelTag) elements.resultModelTag.textContent = data.model_name || state.activeModelName;
+        if (elements.resultImage) elements.resultImage.src = data.image_base64;
 
-        // Tự động cuộn xuống phần kết quả
-        elements.inspectionResults.scrollIntoView({ behavior: 'smooth' });
-    }
+        // Render bảng chi tiết
+        if (elements.defectTableBody) {
+            elements.defectTableBody.innerHTML = '';
+            const detections = data.detections || [];
 
-    function refreshInspectionTable() {
-        if (!state.lastDetectionResult || !elements.defectTableBody) return;
-        const data = state.lastDetectionResult;
-
-        // Cập nhật thống kê HUD dựa trên lớp người dùng đang bật
-        const pCount = state.classes['Pothole'] ? (data.counts?.['Pothole'] || 0) : 0;
-        const cCount = state.classes['Crack'] ? (data.counts?.['Crack'] || 0) : 0;
-        const mCount = state.classes['Manhole'] ? (data.counts?.['Manhole'] || 0) : 0;
-        elements.hudPotholeCount.textContent = pCount;
-        elements.hudCrackCount.textContent = cCount;
-        elements.hudManholeCount.textContent = mCount;
-        elements.hudTotalDefects.textContent = pCount + cCount + mCount;
-
-        // Điền dữ liệu vào bảng (chỉ hiện các lớp được bật)
-        elements.defectTableBody.innerHTML = '';
-        const activeDetections = (data.detections || []).filter(d => state.classes[d.class_name]);
-
-        if (activeDetections.length > 0) {
-            elements.noDefectMsg.style.display = 'none';
-            activeDetections.forEach(d => {
-                const tr = document.createElement('tr');
-                const badgeClass = `badge-${d.class_name.toLowerCase()}`;
-
-                tr.innerHTML = `
-                    <td><strong>#${d.id}</strong></td>
-                    <td><span class="badge-defect ${badgeClass}">${d.class_name}</span></td>
-                    <td>
-                        <div class="conf-bar">
-                            <div class="bar-bg">
-                                <div class="bar-fill" style="width:${d.confidence * 100}%; background:${d.color};"></div>
-                            </div>
-                            <span>${Math.round(d.confidence * 100)}%</span>
-                        </div>
-                    </td>
-                    <td><code>${d.width}×${d.height}</code></td>
-                `;
-                elements.defectTableBody.appendChild(tr);
-            });
-        } else {
-            elements.noDefectMsg.style.display = 'block';
+            if (detections.length === 0) {
+                if (elements.noDefectMsg) elements.noDefectMsg.style.display = 'block';
+            } else {
+                if (elements.noDefectMsg) elements.noDefectMsg.style.display = 'none';
+                detections.forEach((det, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${idx + 1}</td>
+                        <td>
+                            <span class="badge-pill" style="background:${det.color}20; color:${det.color}; border:1px solid ${det.color}40;">
+                                ${det.class_name}
+                            </span>
+                        </td>
+                        <td><strong>${Math.round(det.confidence * 100)}%</strong></td>
+                        <td><code>${det.width} × ${det.height} px</code></td>
+                    `;
+                    elements.defectTableBody.appendChild(tr);
+                });
+            }
         }
+
+        // Cập nhật số liệu HUD
+        updateHudStats({
+            total: data.total_defects,
+            counts: data.counts,
+            fps: data.fps,
+            latency_ms: data.latency_ms
+        });
     }
 
-    // Tải ảnh kết quả
-    elements.btnDownloadAnnotated.addEventListener('click', () => {
-        if (!state.lastDetectionResult) return;
-        const link = document.createElement('a');
-        link.download = `detection-${state.lastDetectionResult.filename || 'road'}.jpg`;
-        link.href = state.lastDetectionResult.image_base64;
-        link.click();
-    });
-
-    // Xuất báo cáo JSON
-    elements.btnExportJson.addEventListener('click', () => {
-        if (!state.lastDetectionResult) return;
-        const exportData = { ...state.lastDetectionResult };
-        delete exportData.image_base64; // Bỏ chuỗi base64 nặng để file JSON nhẹ nhàng
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `report-${state.lastDetectionResult.filename || 'road'}.json`;
-        link.href = url;
-        link.click();
-        URL.revokeObjectURL(url);
-    });
-
     // =========================================================
-    // 4. SAMPLE DATASET GALLERY (LOAD MORE & SCROLL FADE)
+    // 10. SAMPLES GALLERY (DATASET VIEWER)
     // =========================================================
-    async function loadSamples(isAppend = false) {
+    async function loadSamples(reset = false) {
         if (state.isLoadingSamples) return;
         state.isLoadingSamples = true;
 
-        if (elements.galleryLoadingSpinner) elements.galleryLoadingSpinner.style.display = 'flex';
-        if (elements.btnLoadMoreSamples) elements.btnLoadMoreSamples.disabled = true;
-
-        if (!isAppend) {
+        if (reset) {
             state.sampleOffset = 0;
-            elements.samplesGrid.innerHTML = '';
+            if (elements.samplesGrid) elements.samplesGrid.innerHTML = '';
         }
+
+        if (elements.galleryLoadingSpinner) elements.galleryLoadingSpinner.style.display = 'inline-flex';
+        if (elements.btnLoadMoreSamples) elements.btnLoadMoreSamples.style.display = 'none';
 
         try {
             const res = await fetch(`/api/samples?offset=${state.sampleOffset}&limit=${state.sampleLimit}`);
             const data = await res.json();
 
-            state.sampleTotal = data.total || 0;
-
-            if (data.samples && data.samples.length > 0) {
-                data.samples.forEach(filename => {
-                    const card = document.createElement('div');
-                    card.className = 'sample-card fade-in';
-                    card.innerHTML = `
-                        <img class="sample-thumbnail" src="/api/sample/${filename}" alt="${filename}" loading="lazy">
-                        <div class="sample-info">
-                            <span class="sample-title" title="${filename}">${filename}</span>
-                            <span class="sample-badge">Chọn</span>
-                        </div>
-                    `;
-
-                    card.addEventListener('click', () => runSampleDetection(filename));
-                    elements.samplesGrid.appendChild(card);
-                });
-
-                state.sampleOffset += data.samples.length;
-            } else if (!isAppend) {
-                elements.samplesGrid.innerHTML = '<p style="color:var(--muted); padding: 24px; text-align: center;">Không tìm thấy ảnh mẫu trong thư mục dữ liệu.</p>';
-            }
-
-            // Cập nhật nhãn đếm trên Header
+            state.sampleTotal = data.total;
             if (elements.galleryCountBadge) {
-                elements.galleryCountBadge.textContent = `${Math.min(state.sampleOffset, state.sampleTotal)} / ${state.sampleTotal.toLocaleString()} ảnh`;
+                elements.galleryCountBadge.textContent = `${data.total} ảnh trong tập Test`;
             }
 
-            // Cập nhật trạng thái nút Tải thêm & Thông báo hết ảnh
-            const remaining = state.sampleTotal - state.sampleOffset;
-            if (data.has_more && remaining > 0) {
-                if (elements.btnLoadMoreSamples) {
-                    elements.btnLoadMoreSamples.style.display = 'inline-flex';
-                    const nextBatch = Math.min(state.sampleLimit, remaining);
-                    const loadText = document.getElementById('loadMoreText');
-                    if (loadText) loadText.textContent = `Tải thêm ${nextBatch} ảnh mẫu`;
-                }
-                if (elements.remainingCountBadge) {
-                    elements.remainingCountBadge.textContent = `+${remaining.toLocaleString()} còn lại`;
-                }
+            const samples = data.samples || [];
+            samples.forEach(fname => {
+                const card = document.createElement('div');
+                card.className = 'gallery-item';
+                card.innerHTML = `
+                    <div class="sample-img-container">
+                        <img src="/api/sample/${fname}" loading="lazy" alt="${fname}">
+                        <div class="sample-overlay-hover">
+                            <span class="btn-sample-detect">🔍 Nhận diện (${state.activeModel === 'flexi_yolo' ? 'Flexi-YOLO' : 'YOLOv8n'})</span>
+                        </div>
+                    </div>
+                    <span class="sample-name-caption">${fname}</span>
+                `;
+                card.addEventListener('click', () => runSampleDetection(fname));
+                if (elements.samplesGrid) elements.samplesGrid.appendChild(card);
+            });
+
+            state.sampleOffset += samples.length;
+            const remaining = data.total - state.sampleOffset;
+
+            if (elements.remainingCountBadge) {
+                elements.remainingCountBadge.textContent = `(Còn ${Math.max(0, remaining)})`;
+            }
+
+            if (data.has_more && elements.btnLoadMoreSamples) {
+                elements.btnLoadMoreSamples.style.display = 'inline-flex';
                 if (elements.galleryEndMsg) elements.galleryEndMsg.style.display = 'none';
             } else {
-                if (elements.btnLoadMoreSamples) elements.btnLoadMoreSamples.style.display = 'none';
                 if (elements.galleryEndMsg) elements.galleryEndMsg.style.display = 'block';
             }
         } catch (err) {
-            console.error('Failed to load samples:', err);
+            console.error('Lỗi tải ảnh mẫu:', err);
         } finally {
             state.isLoadingSamples = false;
             if (elements.galleryLoadingSpinner) elements.galleryLoadingSpinner.style.display = 'none';
-            if (elements.btnLoadMoreSamples) elements.btnLoadMoreSamples.disabled = false;
         }
     }
 
-    // Sự kiện bấm nút Tải thêm ảnh
     if (elements.btnLoadMoreSamples) {
-        elements.btnLoadMoreSamples.addEventListener('click', () => {
-            loadSamples(true);
-        });
-    }
-
-    // Tự động tải thêm khi cuộn gần cuối danh sách trong tab Thư viện mẫu
-    if (elements.workspaceFrame) {
-        elements.workspaceFrame.addEventListener('scroll', () => {
-            const tabSamples = document.getElementById('tab-samples');
-            if (!tabSamples || !tabSamples.classList.contains('active')) return;
-            if (state.isLoadingSamples || state.sampleOffset >= state.sampleTotal) return;
-
-            const scrollPos = elements.workspaceFrame.scrollTop + elements.workspaceFrame.clientHeight;
-            const scrollHeight = elements.workspaceFrame.scrollHeight;
-
-            if (scrollPos >= scrollHeight - 120) {
-                loadSamples(true);
-            }
-        });
+        elements.btnLoadMoreSamples.addEventListener('click', () => loadSamples(false));
     }
 
     async function runSampleDetection(filename) {
-        try {
-            // Chuyển sang Tab Upload & Inspection
-            document.getElementById('tabBtnUpload').click();
+        // Chuyển sang Tab 2 Upload để hiển thị kết quả trực quan
+        elements.tabBtns.forEach(b => {
+            b.classList.toggle('active', b.getAttribute('data-tab') === 'tab-upload');
+        });
+        elements.tabPanes.forEach(p => {
+            p.classList.toggle('active', p.id === 'tab-upload');
+        });
 
+        showToast(`🔍 Đang kiểm tra ảnh mẫu [${filename}] bằng ${state.activeModelName}...`);
+
+        try {
             const res = await fetch(`/api/predict/sample/${filename}?conf=${state.conf}&iou=${state.iou}`, {
                 method: 'POST'
             });
-
-            if (!res.ok) throw new Error('Không thể phân tích ảnh mẫu.');
+            if (!res.ok) throw new Error('Không thể nhận diện ảnh mẫu');
             const data = await res.json();
-            displayImageResult(data);
+            renderUploadResult(data, filename);
+            showToast('✅ Đã phát hiện khuyết tật trên ảnh mẫu!', 'success');
         } catch (err) {
-            alert(`⚠️ Lỗi phân tích ảnh mẫu: ${err.message}`);
+            console.error('Lỗi nhận diện ảnh mẫu:', err);
+            showToast(`⚠️ ${err.message}`, 'error');
         }
     }
 });

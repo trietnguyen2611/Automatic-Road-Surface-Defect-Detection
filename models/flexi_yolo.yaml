@@ -1,0 +1,43 @@
+# Flexi-YOLO Model Configuration
+# Paper: "Flexi-YOLO: A lightweight method for road crack detection in complex environments"
+# PLOS ONE (2025) - https://doi.org/10.1371/journal.pone.0325993
+
+nc: 3  # number of classes (0: Pothole, 1: Crack, 2: Manhole)
+scales:
+  # [depth, width, max_channels]
+  n: [0.33, 0.25, 1024]  # Flexi-YOLO Nano (Lightweight: ~7.6 GFLOPS vs YOLOv8n 8.1 GFLOPS)
+
+# Flexi-YOLO Backbone
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]          # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]         # 1-P2/4
+  - [-1, 1, DCNv_C2f, [128, True]]     # 2: Deformable C2f
+  - [-1, 1, AKConv, [256, 9, 2]]        # 3-P3/8: Alterable Kernel Conv
+  - [-1, 2, DCNv_C2f, [256, True]]     # 4: Deformable C2f
+  - [-1, 1, AKConv, [512, 9, 2]]        # 5-P4/16: Alterable Kernel Conv
+  - [-1, 2, DCNv_C2f, [512, True]]     # 6: Deformable C2f
+  - [-1, 1, AKConv, [1024, 9, 2]]       # 7-P5/32: Alterable Kernel Conv
+  - [-1, 1, DCNv_C2f, [1024, True]]    # 8: Deformable C2f
+  - [-1, 1, SPPF, [1024, 5]]           # 9: Spatial Pyramid Pooling Fast
+  - [-1, 1, GAMAttention, []]          # 10: Global Attention Module (GAM)
+
+# Flexi-YOLO Neck & G-Head
+head:
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
+  - [[-1, 6], 1, Concat, [1]]          # 12: cat backbone P4
+  - [-1, 1, C2f, [512]]                # 13
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
+  - [[-1, 4], 1, Concat, [1]]          # 15: cat backbone P3
+  - [-1, 1, C2f, [256]]                # 16 (P3/8-small)
+
+  - [-1, 1, AKConv, [256, 9, 2]]       # 17: Alterable Kernel Conv in neck
+  - [[-1, 13], 1, Concat, [1]]         # 18: cat head P4
+  - [-1, 1, C2f, [512]]                # 19 (P4/16-medium)
+
+  - [-1, 1, AKConv, [512, 9, 2]]       # 20: Alterable Kernel Conv in neck
+  - [[-1, 10], 1, Concat, [1]]         # 21: cat head P5
+  - [-1, 1, C2f, [1024]]               # 22 (P5/32-large)
+
+  - [[16, 19, 22], 1, Detect, [nc]]    # 23: Detect(P3, P4, P5)
