@@ -1,6 +1,6 @@
 """
-FastAPI Server cho Hệ thống Nhận diện Khuyết tật Mặt đường (Flexi-YOLO & YOLOv8n Baseline)
-Hỗ trợ chuyển đổi mô hình linh hoạt, đối chiếu thực nghiệm khoa học từ Paper PLOS ONE 2025.
+FastAPI Server cho Hệ thống Nhận diện Hư hỏng Mặt đường (Flexi-YOLO & YOLOv8n Baseline)
+Hỗ trợ chuyển đổi mô hình linh hoạt, tối ưu hoá phát hiện hư hỏng mặt đường bộ.
 """
 
 import json
@@ -19,8 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from webapp.model_service import DefectDetector, CLASSES, CLASS_COLORS, PAPER_METRICS
 
 app = FastAPI(
-    title="Flexi-YOLO: Road Surface Defect Detection",
-    description="Ứng dụng nhận diện khuyết tật mặt đường theo Paper PLOS ONE 2025 (Wise-IoU, DCNv-C2f, AKConv, GAM, G-Head).",
+    title="Flexi-YOLO: Road Surface Distress Detection",
+    description="Ứng dụng nhận diện hư hỏng mặt đường (Wise-IoU, DCNv-C2f, AKConv, GAM, G-Head).",
     version="2.0.0"
 )
 
@@ -124,14 +124,24 @@ async def get_paper_benchmark():
         ]
     })
 
+def get_dataset_images_dir() -> Path:
+    """Xác định đường dẫn thư mục ảnh của dataset linh hoạt và nhất quán."""
+    candidates = [
+        BASE_DIR.parent / "Data" / "dataset" / "images",
+        BASE_DIR.parent / "dataset" / "images",
+        BASE_DIR.parent / "Data" / "dts" / "images",
+        BASE_DIR.parent / "dts" / "images",
+        BASE_DIR.parent / "Data" / "dataset_split" / "images" / "test",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0]
+
 @app.get("/api/samples")
 async def get_sample_images(offset: int = 0, limit: int = 24):
     """Lấy danh sách các ảnh mẫu từ dataset để test nhanh với phân trang."""
-    images_dir = BASE_DIR.parent / "Data" / "dts" / "images"
-    if not images_dir.exists():
-        images_dir = BASE_DIR.parent / "dts" / "images"
-    if not images_dir.exists():
-        images_dir = BASE_DIR.parent / "Data" / "dataset_split" / "images" / "test"
+    images_dir = get_dataset_images_dir()
         
     sample_files = []
     total = 0
@@ -153,9 +163,7 @@ async def get_sample_images(offset: int = 0, limit: int = 24):
 @app.get("/api/sample/{filename}")
 async def get_sample_file(filename: str):
     """Trả về file ảnh mẫu cụ thể."""
-    images_dir = BASE_DIR.parent / "Data" / "dts" / "images"
-    if not images_dir.exists():
-        images_dir = BASE_DIR.parent / "dts" / "images"
+    images_dir = get_dataset_images_dir()
     target = images_dir / filename
     if not target.exists():
         target = BASE_DIR.parent / "Data" / "dataset_split" / "images" / "test" / filename
@@ -166,9 +174,7 @@ async def get_sample_file(filename: str):
 @app.post("/api/predict/sample/{filename}")
 async def predict_sample(filename: str, conf: float = 0.25, iou: float = 0.45):
     """Chạy phát hiện trực tiếp trên ảnh mẫu trong dataset."""
-    images_dir = BASE_DIR.parent / "Data" / "dts" / "images"
-    if not images_dir.exists():
-        images_dir = BASE_DIR.parent / "dts" / "images"
+    images_dir = get_dataset_images_dir()
     target = images_dir / filename
     if not target.exists():
         target = BASE_DIR.parent / "Data" / "dataset_split" / "images" / "test" / filename
@@ -198,7 +204,7 @@ async def predict_image(
     conf: float = Form(0.25),
     iou: float = Form(0.45)
 ):
-    """Xử lý hình ảnh tải lên và trả về kết quả phát hiện khuyết tật."""
+    """Xử lý hình ảnh tải lên và trả về kết quả phát hiện hư hỏng."""
     try:
         image_bytes = await file.read()
         result = detector.predict_image(image_bytes, conf=conf, iou=iou)

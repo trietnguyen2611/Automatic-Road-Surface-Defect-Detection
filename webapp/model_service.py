@@ -62,7 +62,7 @@ PAPER_METRICS = {
             "description": "Mô hình cơ sở chuẩn (Baseline) của Ultralytics với hàm loss CIoU và cấu trúc tích chập truyền thống."
         },
         "flexi_yolo": {
-            "name": "Flexi-YOLO (Paper Proposed Method)",
+            "name": "Flexi-YOLO",
             "type": "flexi_yolo",
             "precision": 0.907,
             "recall": 0.782,
@@ -80,7 +80,7 @@ PAPER_METRICS = {
                 "GAM (Global Attention Mechanism)",
                 "G-Head (Ghost Coupled Lightweight Head)"
             ],
-            "description": "Phương pháp đột phá đề xuất trong bài báo PLOS ONE 2025: Giảm 0.5 GFLOPS, tăng +5.3% mAP@0.5, tăng +4.7% Recall, tối ưu hóa đặc thù cho cấu trúc vết nứt kéo dài."
+            "description": "Phương pháp tối ưu: Giảm 0.5 GFLOPS, tăng +5.3% mAP@0.5, tăng +4.7% Recall, tối ưu hóa đặc thù cho cấu trúc vết nứt kéo dài."
         }
     }
 }
@@ -138,9 +138,19 @@ class DefectDetector:
 
     def _resolve_flexi_path(self) -> Path:
         """Tìm trọng số Flexi-YOLO."""
+        candidates = sorted(
+            [p for p in self.base_dir.glob("runs/**/flexi_yolo*/weights/best.pt")],
+            key=lambda p: p.stat().st_mtime,
+            reverse=True
+        )
+        if candidates:
+            return candidates[0]
         cand = self.base_dir / "runs" / "detect" / "flexi_yolo_train" / "weights" / "best.pt"
         if cand.exists():
             return cand
+        cand_model = self.base_dir / "models" / "flexi_yolo_best.pt"
+        if cand_model.exists():
+            return cand_model
         # Nếu chưa có trọng số riêng của Flexi-YOLO sau train, dùng checkpoint tốt nhất hiện tại
         return self._resolve_baseline_path()
 
@@ -210,7 +220,7 @@ class DefectDetector:
 
     def predict_image(self, image_bytes: bytes, conf: float = 0.25, iou: float = 0.45) -> Dict[str, Any]:
         """
-        Nhận diện khuyết tật từ raw image bytes.
+        Nhận diện hư hỏng từ raw image bytes.
         Trả về ảnh vẽ Bounding Box (base64) và danh sách chi tiết các phát hiện.
         """
         self._check_and_auto_reload()

@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.activeModel === mode) return;
 
         try {
-            showToast(`🔄 Đang chuyển đổi sang mô hình: ${mode === 'flexi_yolo' ? 'Flexi-YOLO (Paper)' : 'YOLOv8n (Baseline)'}...`);
+            showToast(`🔄 Đang chuyển đổi sang mô hình: ${mode === 'flexi_yolo' ? 'Flexi-YOLO' : 'YOLOv8n (Baseline)'}...`);
             const res = await fetch('/api/model/select', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -191,51 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.btnSelectBaseline.addEventListener('click', () => switchModel('baseline'));
     }
 
-    // =========================================================
-    // 5. PAPER BENCHMARK MODAL CONTROLS
-    // =========================================================
-    function openPaperModal() {
-        if (elements.modalPaperBenchmark) {
-            elements.modalPaperBenchmark.classList.add('is-open');
-            elements.modalPaperBenchmark.setAttribute('aria-hidden', 'false');
-        }
-    }
-
-    function closePaperModal() {
-        if (elements.modalPaperBenchmark) {
-            elements.modalPaperBenchmark.classList.remove('is-open');
-            elements.modalPaperBenchmark.setAttribute('aria-hidden', 'true');
-        }
-    }
-
-    if (elements.btnOpenPaperModal) {
-        elements.btnOpenPaperModal.addEventListener('click', openPaperModal);
-    }
-    if (elements.systemStatusBadge) {
-        elements.systemStatusBadge.addEventListener('click', openPaperModal);
-    }
-    if (elements.btnClosePaperModal) {
-        elements.btnClosePaperModal.addEventListener('click', closePaperModal);
-    }
-    if (elements.btnModalCloseAction) {
-        elements.btnModalCloseAction.addEventListener('click', closePaperModal);
-    }
-    if (elements.modalPaperBenchmark) {
-        elements.modalPaperBenchmark.addEventListener('click', (e) => {
-            if (e.target === elements.modalPaperBenchmark) closePaperModal();
-        });
-    }
-    if (elements.btnModalSwitchToFlexi) {
-        elements.btnModalSwitchToFlexi.addEventListener('click', () => {
-            switchModel('flexi_yolo');
-            closePaperModal();
-        });
-    }
-
-    // Phím tắt ESC đóng Modal / Popover
+    // Phím tắt ESC đóng Popover Cài đặt
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            closePaperModal();
             closeSettingsPopover();
         }
     });
@@ -264,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     function toggleSettingsPopover() {
         if (!elements.settingsMenu) return;
-        const isVisible = elements.settingsMenu.classList.contains('is-visible');
+        const isVisible = elements.settingsMenu.classList.contains('is-visible') || elements.settingsMenu.classList.contains('open');
         if (isVisible) closeSettingsPopover();
         else openSettingsPopover();
     }
@@ -272,13 +230,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function openSettingsPopover() {
         if (!elements.settingsMenu) return;
         elements.settingsMenu.classList.add('is-visible');
-        if (elements.btnSettingsToggle) elements.btnSettingsToggle.setAttribute('aria-expanded', 'true');
+        elements.settingsMenu.classList.add('open');
+        if (elements.btnSettingsToggle) {
+            elements.btnSettingsToggle.setAttribute('aria-expanded', 'true');
+            elements.btnSettingsToggle.classList.add('active');
+        }
     }
 
     function closeSettingsPopover() {
         if (!elements.settingsMenu) return;
         elements.settingsMenu.classList.remove('is-visible');
-        if (elements.btnSettingsToggle) elements.btnSettingsToggle.setAttribute('aria-expanded', 'false');
+        elements.settingsMenu.classList.remove('open');
+        if (elements.btnSettingsToggle) {
+            elements.btnSettingsToggle.setAttribute('aria-expanded', 'false');
+            elements.btnSettingsToggle.classList.remove('active');
+        }
     }
 
     if (elements.btnSettingsToggle) {
@@ -324,13 +290,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function onClassesChanged() {
+        updateClassIndicator();
+        if (state.lastDetectionResult) {
+            renderUploadResult(state.lastDetectionResult, elements.resultFilename ? elements.resultFilename.textContent : '');
+        }
+    }
+
     classCheckboxes.forEach(({ el, key }) => {
         if (!el) return;
         el.addEventListener('change', () => {
             state.classes[key] = el.checked;
             const tile = el.closest('.defect-tile');
             if (tile) tile.classList.toggle('is-active', el.checked);
-            updateClassIndicator();
+            onClassesChanged();
         });
     });
 
@@ -347,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             elements.btnToggleAllClasses.textContent = newState ? 'Bỏ chọn tất cả' : 'Chọn tất cả';
-            updateClassIndicator();
+            onClassesChanged();
         });
     }
 
@@ -578,6 +551,8 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.btnClearUpload.addEventListener('click', () => {
             if (elements.uploadResultCard) elements.uploadResultCard.style.display = 'none';
             if (elements.dropzoneArea) elements.dropzoneArea.style.display = 'block';
+            if (elements.fileInput) elements.fileInput.value = '';
+            state.lastDetectionResult = null;
             updateHudStats({ total: 0, counts: {} });
         });
     }
@@ -607,6 +582,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderUploadResult(data, filename) {
+        if (!data) return;
+        state.lastDetectionResult = data;
         if (elements.dropzoneArea) elements.dropzoneArea.style.display = 'none';
         if (elements.uploadResultCard) elements.uploadResultCard.style.display = 'block';
 
@@ -614,16 +591,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.resultModelTag) elements.resultModelTag.textContent = data.model_name || state.activeModelName;
         if (elements.resultImage) elements.resultImage.src = data.image_base64;
 
-        // Render bảng chi tiết
+        // Render bảng chi tiết với bộ lọc lớp hư hỏng đang chọn
         if (elements.defectTableBody) {
             elements.defectTableBody.innerHTML = '';
-            const detections = data.detections || [];
+            const allDetections = data.detections || [];
+            const filteredDetections = allDetections.filter(det => state.classes[det.class_name] !== false);
 
-            if (detections.length === 0) {
-                if (elements.noDefectMsg) elements.noDefectMsg.style.display = 'block';
+            if (filteredDetections.length === 0) {
+                if (elements.noDefectMsg) {
+                    elements.noDefectMsg.style.display = 'block';
+                    elements.noDefectMsg.textContent = allDetections.length > 0 
+                        ? 'Các hư hỏng đã phát hiện đang bị ẩn do bộ lọc lớp đã tắt.' 
+                        : 'Không tìm thấy hư hỏng mặt đường nào vượt qua ngưỡng tin cậy đã chọn.';
+                }
             } else {
                 if (elements.noDefectMsg) elements.noDefectMsg.style.display = 'none';
-                detections.forEach((det, idx) => {
+                filteredDetections.forEach((det, idx) => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${idx + 1}</td>
@@ -638,15 +621,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     elements.defectTableBody.appendChild(tr);
                 });
             }
-        }
 
-        // Cập nhật số liệu HUD
-        updateHudStats({
-            total: data.total_defects,
-            counts: data.counts,
-            fps: data.fps,
-            latency_ms: data.latency_ms
-        });
+            // Cập nhật counts tương ứng với các lớp đang kích hoạt
+            const filteredCounts = { Pothole: 0, Crack: 0, Manhole: 0 };
+            filteredDetections.forEach(d => {
+                if (filteredCounts[d.class_name] !== undefined) filteredCounts[d.class_name]++;
+            });
+
+            updateHudStats({
+                total: filteredDetections.length,
+                counts: filteredCounts,
+                fps: data.fps,
+                latency_ms: data.latency_ms
+            });
+        }
     }
 
     // =========================================================
@@ -733,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error('Không thể nhận diện ảnh mẫu');
             const data = await res.json();
             renderUploadResult(data, filename);
-            showToast('✅ Đã phát hiện khuyết tật trên ảnh mẫu!', 'success');
+            showToast('✅ Đã phát hiện hư hỏng trên ảnh mẫu!', 'success');
         } catch (err) {
             console.error('Lỗi nhận diện ảnh mẫu:', err);
             showToast(`⚠️ ${err.message}`, 'error');

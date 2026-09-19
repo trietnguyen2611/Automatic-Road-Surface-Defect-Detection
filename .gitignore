@@ -11,6 +11,9 @@ Thumbs.db
 dts/
 **/dts/
 Data/dts/
+dataset/
+**/dataset/
+Data/dataset/
 dataset_split/
 Data/dataset_split/
 
