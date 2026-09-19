@@ -1,0 +1,8 @@
+names:
+  0: Pothole
+  1: Crack
+  2: Manhole
+path: /Users/trietnguyen/Documents/Automatic-Road-Surface-Defect-Detection/Data/dataset_split
+test: images/test
+train: images/train
+val: images/val

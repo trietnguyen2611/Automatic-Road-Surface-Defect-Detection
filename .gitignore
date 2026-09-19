@@ -11,6 +11,8 @@ Thumbs.db
 dts/
 **/dts/
 Data/dts/
+dataset_split/
+Data/dataset_split/
 
 # Python & Jupyter
 __pycache__/

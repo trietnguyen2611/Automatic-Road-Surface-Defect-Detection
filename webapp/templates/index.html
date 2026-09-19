@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road Surface Defect Detection</title>
+    <meta name="description"
+        content="Hệ thống trí tuệ nhân tạo phát hiện ổ gà, vết nứt và nắp cống trên bề mặt đường bộ với giao diện ấm áp, thanh lịch và trực quan.">
+
+    <!-- Editorial Typography: Newsreader (Serif Display), Inter (Humanist Sans), JetBrains Mono (Code/Metrics) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap"
+        rel="stylesheet">
+
+    <!-- Custom Vanilla CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- =========================================================
+             LEFT SIDEBAR: BRAND, NAVIGATION TABS & SETTINGS
+             ========================================================= -->
+        <aside class="left-sidebar floating-blur" id="settingsSidebar">
+            <!-- Brand & Model Badge -->
+            <div class="sidebar-brand-block">
+                <div class="brand">
+                    <div class="brand-spike" title="Road Surface Defect Detection">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M12 1.5L13.6 8.2L19.8 5.6L16.2 11.2L22.5 14L16 15.6L17.5 22.2L12 18L6.5 22.2L8 15.6L1.5 14L7.8 11.2L4.2 5.6L10.4 8.2L12 1.5Z" />
+                        </svg>
+                    </div>
+                    <div class="brand-text">
+                        <span class="brand-title">Road Detect <span class="brand-badge-coral">YOLOv8</span></span>
+                        <span class="brand-subtitle">Nhận diện khuyết tật mặt đường</span>
+                    </div>
+                </div>
+
+                <div class="badge-pill model-badge" id="systemStatusBadge">
+                    <span class="pulse-dot"></span>
+                    <span id="systemStatusText">{{ model_name }}</span>
+                </div>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Navigation Tabs (Mục này) -->
+            <div class="sidebar-section">
+                <span class="sidebar-section-title">Chế độ hoạt động</span>
+                <nav class="sidebar-nav">
+                    <button class="category-tab active" data-tab="tab-webcam" id="tabBtnWebcam">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                        <span>Camera thời gian thực</span>
+                        <span class="live-pill">Live</span>
+                    </button>
+                    <button class="category-tab" data-tab="tab-upload" id="tabBtnUpload">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        <span>Tải ảnh phân tích</span>
+                    </button>
+                    <button class="category-tab" data-tab="tab-samples" id="tabBtnSamples">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                        <span>Thư viện mẫu thực tế</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Nút mở menu Cài đặt dạng Floating Blur -->
+            <div class="sidebar-section sidebar-settings-section">
+                <span class="sidebar-section-title">Hệ thống</span>
+                <button class="btn btn-secondary btn-block btn-settings-trigger" id="btnSettingsToggle" aria-haspopup="true" aria-expanded="false" title="Mở cài đặt thông số">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                        <line x1="17" y1="16" x2="23" y2="16"></line>
+                    </svg>
+                    <span>Cài đặt thông số</span>
+                    <span class="settings-pill-indicator" id="settingsActiveIndicator">3/3 lớp</span>
+                </button>
+            </div>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+                <span>Designed by Triet Nguyen</span>
+            </div>
+        </aside>
+
+        <!-- Floating Blur Settings Popover / Menu (Nằm ngoài sidebar để tránh bị clip khi cuộn) -->
+        <div class="settings-popover floating-blur" id="settingsMenu" role="dialog" aria-modal="true" aria-label="Cài đặt thông số">
+            <div class="popover-header">
+                <div class="popover-title-row">
+                    <div class="popover-title-group">
+                        <h3 class="serif-title">Cài đặt thông số</h3>
+                        <span class="popover-badge">YOLOv8 Config</span>
+                    </div>
+                    <button class="btn-close" id="btnCloseSettings" aria-label="Đóng cài đặt" title="Đóng (Esc)">✕</button>
+                </div>
+                <p class="popover-desc">Điều chỉnh siêu tham số phát hiện và bộ lọc lớp khuyết tật theo dõi thời gian thực.</p>
+            </div>
+
+            <div class="popover-body">
+                <div class="control-group">
+                    <div class="control-label-row">
+                        <span class="control-label">Độ tin cậy (Confidence)</span>
+                        <span class="control-val-pill" id="valConf">25%</span>
+                    </div>
+                    <input type="range" min="0.05" max="0.95" step="0.05" value="0.25" id="sliderConf"
+                        class="warm-slider">
+                    <span class="control-hint">Lọc bỏ dự đoán dưới ngưỡng tin cậy này.</span>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label-row">
+                        <span class="control-label">Ngưỡng IoU (NMS)</span>
+                        <span class="control-val-pill" id="valIou">45%</span>
+                    </div>
+                    <input type="range" min="0.10" max="0.90" step="0.05" value="0.45" id="sliderIou"
+                        class="warm-slider">
+                    <span class="control-hint">Triệt tiêu khung bao trùng lặp giữa các dự đoán.</span>
+                </div>
+
+                <div class="control-divider"></div>
+
+                <!-- Lớp khuyết tật theo dõi: Thiết kế nút chọn hợp lý, công thái học, sang trọng -->
+                <div class="control-group">
+                    <div class="control-label-row">
+                        <span class="control-sublabel">Lớp khuyết tật theo dõi</span>
+                        <button type="button" class="btn-text-action" id="btnToggleAllClasses" title="Bật hoặc tắt nhanh tất cả các lớp">Bỏ chọn tất cả</button>
+                    </div>
+                    <div class="defect-class-selector" id="defectClassSelector">
+                        <!-- Pothole Tile -->
+                        <label class="defect-tile tile-pothole is-active" for="chkPothole" title="Bật/Tắt phát hiện Ổ gà">
+                            <input type="checkbox" id="chkPothole" checked class="sr-only">
+                            <div class="tile-top-row">
+                                <span class="tile-dot dot-pothole"></span>
+                                <span class="tile-status-icon">✓</span>
+                            </div>
+                            <div class="tile-name-vi">Ổ gà</div>
+                            <div class="tile-name-en">Pothole</div>
+                        </label>
+
+                        <!-- Crack Tile -->
+                        <label class="defect-tile tile-crack is-active" for="chkCrack" title="Bật/Tắt phát hiện Vết nứt">
+                            <input type="checkbox" id="chkCrack" checked class="sr-only">
+                            <div class="tile-top-row">
+                                <span class="tile-dot dot-crack"></span>
+                                <span class="tile-status-icon">✓</span>
+                            </div>
+                            <div class="tile-name-vi">Vết nứt</div>
+                            <div class="tile-name-en">Crack</div>
+                        </label>
+
+                        <!-- Manhole Tile -->
+                        <label class="defect-tile tile-manhole is-active" for="chkManhole" title="Bật/Tắt phát hiện Nắp cống">
+                            <input type="checkbox" id="chkManhole" checked class="sr-only">
+                            <div class="tile-top-row">
+                                <span class="tile-dot dot-manhole"></span>
+                                <span class="tile-status-icon">✓</span>
+                            </div>
+                            <div class="tile-name-vi">Nắp cống</div>
+                            <div class="tile-name-en">Manhole</div>
+                        </label>
+                    </div>
+                    <span class="control-hint">Bấm trực tiếp vào từng nút để bật/tắt lớp nhận diện tức thì.</span>
+                </div>
+
+                <div class="control-divider"></div>
+
+                <div class="control-group">
+                    <span class="control-sublabel">Tùy chọn hiển thị</span>
+                    <label class="toggle-row">
+                        <input type="checkbox" id="chkShowLabels" checked>
+                        <span>Hiện tên lớp khuyết tật (Labels)</span>
+                    </label>
+                    <label class="toggle-row">
+                        <input type="checkbox" id="chkShowConf" checked>
+                        <span>Hiện phần trăm tin cậy (Confidence)</span>
+                    </label>
+                </div>
+
+                <div class="popover-footer-action">
+                    <button class="btn btn-secondary btn-block" id="btnReloadModel">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        <span>Tải lại mô hình</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================================
+             RIGHT MAIN AREA: STATS BAR + SCROLLABLE WORKSPACE FRAME
+             ========================================================= -->
+        <div class="main-wrapper">
+            <!-- Fixed Stats Bar (Không cuộn mất) -->
+            <header class="top-stats-header">
+                <section class="stats-strip">
+                    <div class="stat-card floating-card">
+                        <span class="stat-caption">TỔNG KHUYẾT TẬT</span>
+                        <div class="stat-row">
+                            <span class="stat-number serif-num" id="hudTotalDefects">0</span>
+                            <span class="stat-badge">Toàn bộ</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card floating-card">
+                        <span class="stat-caption">Ổ GÀ (POTHOLE)</span>
+                        <div class="stat-row">
+                            <span class="stat-number serif-num color-pothole" id="hudPotholeCount">0</span>
+                            <span class="badge-pill badge-pothole-pill">Lỗi bề mặt</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card floating-card">
+                        <span class="stat-caption">VẾT NỨT (CRACK)</span>
+                        <div class="stat-row">
+                            <span class="stat-number serif-num color-crack" id="hudCrackCount">0</span>
+                            <span class="badge-pill badge-crack-pill">Rạn nứt</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card floating-card">
+                        <span class="stat-caption">NẮP CỐNG (MANHOLE)</span>
+                        <div class="stat-row">
+                            <span class="stat-number serif-num color-manhole" id="hudManholeCount">0</span>
+                            <span class="badge-pill badge-manhole-pill">Công trình</span>
+                        </div>
+                    </div>
+                </section>
+            </header>
+
+            <!-- Scrollable Workspace Frame (Chỉ cuộn trong khung này) -->
+            <main class="workspace-frame custom-scrollbar">
+                <!-- Tab 1: Webcam Real-time Stream -->
+                <div class="tab-pane active" id="tab-webcam">
+                    <div class="dark-console-card floating-card">
+                        <div class="console-viewport" id="viewportWrapper">
+                            <!-- Hidden HTML5 Video Source -->
+                            <video id="webcamVideo" autoplay playsinline muted style="display:none;"></video>
+                            <!-- Render Canvas -->
+                            <canvas id="streamCanvas"></canvas>
+
+                            <!-- Subtle Targeting Frame Markers -->
+                            <div class="target-brackets">
+                                <span class="bracket-tl"></span>
+                                <span class="bracket-tr"></span>
+                                <span class="bracket-bl"></span>
+                                <span class="bracket-br"></span>
+                            </div>
+
+                            <!-- Floating Metrics Pill (Dark Frosted Glass) -->
+                            <div class="floating-metrics-pill">
+                                <span class="metric-live-dot"></span>
+                                <span class="metric-item"><strong id="metricFps">0</strong> FPS</span>
+                                <span class="metric-divider"></span>
+                                <span class="metric-item"><strong id="metricLatency">0</strong> ms</span>
+                            </div>
+
+                            <!-- Standby State Placeholder -->
+                            <div class="console-placeholder" id="streamPlaceholder">
+                                <div class="placeholder-glyph">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="1.6">
+                                        <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                                    </svg>
+                                </div>
+                                <h3 class="serif-title text-on-dark">Webcam đang ở chế độ chờ</h3>
+                                <p class="text-on-dark-soft">Khởi động camera để luồng hình ảnh truyền trực tiếp qua
+                                    WebSocket và nhận diện khuyết tật mặt đường với độ trễ thấp.</p>
+                                <button class="btn btn-primary btn-lg" id="btnStartCamera">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                    </svg>
+                                    <span>Khởi động Camera</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Console Action Bar -->
+                        <div class="console-action-bar">
+                            <div class="bar-left">
+                                <button class="btn btn-secondary-on-dark" id="btnToggleCamera" style="display:none;">
+                                    <span id="btnCameraIcon">⏹</span>
+                                    <span id="btnCameraText">Dừng Camera</span>
+                                </button>
+                                <button class="btn btn-secondary-on-dark" id="btnSnapshot" disabled>
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path
+                                            d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                                        </path>
+                                        <circle cx="12" cy="13" r="4"></circle>
+                                    </svg>
+                                    <span>Chụp khung hình</span>
+                                </button>
+                            </div>
+                            <div class="bar-right">
+                                <span class="camera-status-label" id="cameraDeviceLabel">Thiết bị: Sẵn sàng</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Image Inspection & Deep Analysis -->
+                <div class="tab-pane" id="tab-upload">
+                    <div class="upload-section">
+                        <!-- Dropzone Card -->
+                        <div class="dropzone-card floating-card" id="imageDropzone">
+                            <input type="file" id="fileInput" accept="image/*" style="display:none;">
+                            <div class="dropzone-inner">
+                                <div class="dropzone-spike">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="1.8">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                </div>
+                                <h3 class="serif-title">Kéo và thả ảnh chụp mặt đường vào đây</h3>
+                                <p class="dropzone-sub">Hỗ trợ các định dạng tiêu chuẩn JPG, PNG, WEBP. Hoặc <span
+                                        class="coral-link">chọn tệp từ thiết bị</span>.</p>
+                            </div>
+                        </div>
+
+                        <!-- Inspection Results Container -->
+                        <div class="inspection-view" id="inspectionResults" style="display:none;">
+                            <div class="inspection-bar floating-card">
+                                <div class="file-summary">
+                                    <h4 class="serif-sub" id="resultFilename">image.jpg</h4>
+                                    <span class="badge-pill" id="resultMeta">640×360 • 32ms</span>
+                                </div>
+                                <div class="file-actions">
+                                    <button class="btn btn-secondary btn-sm" id="btnDownloadAnnotated">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                        <span>Tải ảnh gán nhãn</span>
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm" id="btnExportJson">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                            <polyline points="14 2 14 8 20 8"></polyline>
+                                        </svg>
+                                        <span>Xuất báo cáo JSON</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="inspection-split-grid">
+                                <!-- Annotated Visual Card -->
+                                <div class="preview-card floating-card">
+                                    <div class="image-frame">
+                                        <img id="annotatedImage" alt="Road Defect Detection Visual" src="">
+                                    </div>
+                                </div>
+
+                                <!-- Defect Details Card -->
+                                <div class="table-card floating-card">
+                                    <h4 class="serif-sub">Danh mục khuyết tật được phát hiện</h4>
+                                    <div class="table-scroll custom-scrollbar">
+                                        <table class="editorial-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Phân loại</th>
+                                                    <th>Độ tin cậy</th>
+                                                    <th>Kích thước</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="defectTableBody">
+                                                <!-- Dynamic Rows -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="empty-state" id="noDefectMsg" style="display:none;">
+                                        <p>Không tìm thấy khuyết tật mặt đường nào vượt qua ngưỡng tin cậy đã chọn.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Dataset Sample Gallery -->
+                <div class="tab-pane" id="tab-samples">
+                    <div class="gallery-wrapper">
+                        <div class="gallery-header">
+                            <div class="gallery-header-row">
+                                <div class="gallery-title-group">
+                                    <h3 class="serif-title">Thư viện ảnh mẫu thực tế</h3>
+                                    <span class="gallery-count-pill" id="galleryCountBadge">Đang tải...</span>
+                                </div>
+                            </div>
+                            <p class="gallery-sub">Chọn một ảnh bất kỳ trong tập dữ liệu thử nghiệm để kiểm tra ngay lập tức:</p>
+                        </div>
+
+                        <!-- Vùng chứa lưới ảnh với hiệu ứng mờ dần khi cuộn (Scroll Fade Effect) -->
+                        <div class="gallery-scroll-container" id="galleryScrollContainer">
+                            <div class="gallery-grid" id="samplesGrid">
+                                <!-- Cards inserted via JS -->
+                            </div>
+
+                            <!-- Nút Tải thêm ảnh & Trạng thái tải -->
+                            <div class="gallery-footer-action" id="galleryFooter">
+                                <button class="btn btn-secondary btn-load-more" id="btnLoadMoreSamples">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="7 13 12 18 17 13"></polyline>
+                                        <polyline points="7 6 12 11 17 6"></polyline>
+                                    </svg>
+                                    <span id="loadMoreText">Tải thêm 24 ảnh mẫu</span>
+                                    <span class="load-more-badge" id="remainingCountBadge">...</span>
+                                </button>
+                                <div class="gallery-loading-spinner" id="galleryLoadingSpinner" style="display: none;">
+                                    <span class="spinner-dot"></span>
+                                    <span>Đang tải thêm ảnh mẫu...</span>
+                                </div>
+                                <p class="gallery-end-msg" id="galleryEndMsg" style="display: none;">
+                                    ✨ Đã hiển thị toàn bộ hình ảnh trong thư viện mẫu.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Client-side Logic Script -->
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>

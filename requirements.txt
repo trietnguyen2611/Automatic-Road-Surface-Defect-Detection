@@ -1,0 +1,27 @@
+# Deep Learning & YOLO
+ultralytics
+torch
+torchvision
+
+# Computer Vision & Image Processing
+opencv-python
+pillow
+
+# Data Science & Analysis
+numpy<2.0.0
+pandas
+
+# Data Visualization
+matplotlib
+seaborn
+
+# Utilities
+pyyaml
+tqdm
+ipykernel
+
+# Web Application (FastAPI & Real-time Server)
+fastapi
+uvicorn[standard]
+python-multipart
+websockets
